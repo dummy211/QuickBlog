@@ -75,6 +75,7 @@ This document outlines the detailed step-by-step build sequence for creating, in
      ```bash
      npm install quill
      ```
+     
    * Configure Quill editor instantiation using React `useRef` and `useEffect`.
    * Add file selector for article thumbnail, category selection dropdown, and draft/publish toggle switch.
 5. **Blog & Comment Management (`pages/admin/ListBlog.jsx` & `pages/admin/Comments.jsx`)**:
