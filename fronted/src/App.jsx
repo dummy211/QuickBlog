@@ -21,7 +21,8 @@ function App() {
         <Route element={<RequireAuth />}>
           <Route element={<AdminLayout />}>
             <Route path="dashboard" element={<Dashboard />} />
-            <Route path="addblog" element={<AddBlog />} />
+            <Route path="addblog" element={<AddBlog key="create" />} />
+            <Route path="editblog/:id" element={<AddBlog key="edit" />} />
             <Route path="listblog" element={<ListBlog />} />
             <Route path="comments" element={<Comments />} />
           </Route>

@@ -14,7 +14,7 @@ function Newsletter() {
       setMessage('Enter a valid email address.')
       return
     }
-    setMessage('You are on the list. Welcome to QuickBlog!')
+    setMessage('This demo form is not connected to a subscription service.')
     setEmail('')
   }
 

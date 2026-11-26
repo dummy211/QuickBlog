@@ -1,19 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import axios from 'axios'
+import { getAdminSession, loginAdmin, setAdminToken, setUnauthorizedHandler } from '../api.js'
 import { AuthContext } from './authContext.js'
 
 const tokenStorageKey = 'quickblog_admin_token'
-
-axios.defaults.baseURL = import.meta.env.VITE_BASE_URL || 'http://localhost:5000'
-
-function setAuthorizationHeader(token) {
-  if (token) {
-    axios.defaults.headers.common.Authorization = `Bearer ${token}`
-    return
-  }
-
-  delete axios.defaults.headers.common.Authorization
-}
 
 export function AuthProvider({ children }) {
   const [status, setStatus] = useState(() =>
@@ -24,25 +13,29 @@ export function AuthProvider({ children }) {
 
   const clearSession = useCallback(() => {
     window.localStorage.removeItem(tokenStorageKey)
-    setAuthorizationHeader(null)
+    setAdminToken(null)
     setSessionError('')
     setStatus('unauthenticated')
   }, [])
 
   useEffect(() => {
+    setUnauthorizedHandler(clearSession)
+    return () => setUnauthorizedHandler(null)
+  }, [clearSession])
+
+  useEffect(() => {
     const token = window.localStorage.getItem(tokenStorageKey)
 
     if (!token) {
-      setAuthorizationHeader(null)
+      setAdminToken(null)
       return undefined
     }
 
-    setAuthorizationHeader(token)
+    setAdminToken(token)
     const controller = new AbortController()
 
-    axios
-      .get('/api/admin/session', { signal: controller.signal })
-      .then(({ data }) => {
+    getAdminSession({ signal: controller.signal })
+      .then((data) => {
         if (data?.success !== true || data?.authenticated !== true) {
           setStatus('error')
           setSessionError('The server returned an unexpected session response.')
@@ -75,14 +68,14 @@ export function AuthProvider({ children }) {
   }, [clearSession, retryCount])
 
   const login = useCallback(async (email, password) => {
-    const { data } = await axios.post('/api/admin/login', { email, password })
+    const data = await loginAdmin(email, password)
 
     if (data?.success !== true || typeof data.token !== 'string' || !data.token) {
       throw new Error('The server returned an unexpected login response.')
     }
 
     window.localStorage.setItem(tokenStorageKey, data.token)
-    setAuthorizationHeader(data.token)
+    setAdminToken(data.token)
     setSessionError('')
     setStatus('authenticated')
   }, [])

@@ -53,13 +53,13 @@ No database schema changes. Establish a Mongoose connection to MongoDB using `MO
 - Configure CORS for the configured frontend origin rather than allowing every origin in production. Support the local frontend origin during development.
 - Parse JSON request bodies and mount health at `/api/health`; do not add blog, comment, or authentication endpoints in this feature.
 - Connect to MongoDB through `configs/db.js` using Mongoose. Fail explicitly on missing `MONGODB_URI` or connection errors; do not silently start in a success state when the database connection fails.
-- Use an environment-provided port with `3000` as the local default, and surface startup errors clearly.
+- Use an environment-provided port with `5000` as the local default, and surface startup errors clearly.
 - Do not add models, controllers, authorization middleware, upload handling, provider initialization, or database schemas in this step.
 - No `.github/project-instructions.md` exists in the repository. Follow `.github/copilot-instructions.md` and the established QuickBlog conventions.
 
 ## Definition of done
 
-- Running `npm run server` from `server/` starts the Express service on the configured port, defaulting to `3000`, when valid required environment settings are present.
+- Running `npm run server` from `server/` starts the Express service on the configured port, defaulting to `5000`, when valid required environment settings are present.
 - `GET /api/health` returns a JSON success response without exposing secrets.
 - The server connects to MongoDB through the shared connection module before reporting successful readiness.
 - Missing `MONGODB_URI` and failed MongoDB connections produce explicit, actionable startup errors and a non-successful process exit.

@@ -1,31 +1,46 @@
 import { useEffect, useRef, useState } from 'react'
-import axios from 'axios'
+import { useNavigate, useParams } from 'react-router-dom'
 import Quill from 'quill'
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
 import 'quill/dist/quill.snow.css'
 import { blogCategories } from '../../assets/assets.js'
+import { createBlog, generateBlogContent, getAdminBlogs, updateBlog, uploadBlogImage } from '../../api.js'
 
 function AddBlog() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const isEditing = Boolean(id)
   const editorElementRef = useRef(null)
   const quillInstanceRef = useRef(null)
   const imageInputRef = useRef(null)
+  const [blogLoadResult, setBlogLoadResult] = useState({ id: null, status: 'loading', error: '' })
   const [title, setTitle] = useState('')
   const [subtitle, setSubtitle] = useState('')
+  const [author, setAuthor] = useState('')
   const [category, setCategory] = useState('Technology')
   const [isPublished, setIsPublished] = useState(false)
   const [notice, setNotice] = useState('')
+  const [noticeType, setNoticeType] = useState('status')
+  const [isSaving, setIsSaving] = useState(false)
   const [generationStatus, setGenerationStatus] = useState('idle')
   const [generationMessage, setGenerationMessage] = useState('')
   const [selectedImage, setSelectedImage] = useState(null)
   const [imageUrl, setImageUrl] = useState('')
   const [uploadStatus, setUploadStatus] = useState('idle')
   const [uploadMessage, setUploadMessage] = useState('')
+  const blogLoadState = !id
+    ? 'ready'
+    : blogLoadResult.id === id
+      ? blogLoadResult.status
+      : 'loading'
+  const blogLoadError = blogLoadResult.id === id ? blogLoadResult.error : ''
 
   useEffect(() => {
     if (!editorElementRef.current || quillInstanceRef.current) return undefined
 
-    const quill = new Quill(editorElementRef.current, {
+    const editorElement = editorElementRef.current
+    const quill = new Quill(editorElement, {
       theme: 'snow',
       placeholder: 'Write your article here...',
       modules: {
@@ -41,14 +56,51 @@ function AddBlog() {
 
     return () => {
       quillInstanceRef.current = null
-      editorElementRef.current?.replaceChildren()
+      editorElement.replaceChildren()
     }
   }, [])
 
-  function handleSubmit(event) {
-    event.preventDefault()
-    setNotice('Preview only: this blog was not saved or published.')
-  }
+  useEffect(() => {
+    if (!id) return undefined
+
+    const controller = new AbortController()
+
+    getAdminBlogs({ signal: controller.signal })
+      .then((data) => {
+        if (data?.success !== true || !Array.isArray(data.blogs)) {
+          throw new Error('The server returned an unexpected blog list.')
+        }
+
+        const blog = data.blogs.find((item) => item._id === id)
+        if (!blog) {
+          setBlogLoadResult({ id, status: 'not-found', error: '' })
+          return
+        }
+
+        setTitle(blog.title || '')
+        setSubtitle(blog.subtitle ?? blog.subTitle ?? '')
+        setAuthor(blog.author || '')
+        setCategory(blog.category || 'Technology')
+        setIsPublished(Boolean(blog.isPublished))
+        setImageUrl(blog.image || '')
+        quillInstanceRef.current?.clipboard.dangerouslyPasteHTML(
+          DOMPurify.sanitize(blog.description || ''),
+        )
+        setBlogLoadResult({ id, status: 'ready', error: '' })
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return
+        setBlogLoadResult({
+          id,
+          status: 'error',
+          error:
+            error.response?.data?.message ||
+            'Unable to load this blog. Check your connection and try again.',
+        })
+      })
+
+    return () => controller.abort()
+  }, [id])
 
   async function handleGenerate() {
     if (!title.trim() || generationStatus === 'loading') return
@@ -57,7 +109,7 @@ function AddBlog() {
     setGenerationMessage('Generating article...')
 
     try {
-      const { data } = await axios.post('/api/blog/generate', { title, subtitle })
+      const data = await generateBlogContent({ title: title.trim(), subtitle: subtitle.trim() })
       if (data?.success !== true || typeof data.content !== 'string' || !data.content.trim()) {
         throw new Error('The server returned an unexpected generation response.')
       }
@@ -76,18 +128,15 @@ function AddBlog() {
       setGenerationStatus('success')
       setGenerationMessage('AI draft added to the editor. Review and edit it before saving.')
     } catch (error) {
-      const responseMessage = error?.response?.data?.message
+      const responseMessage = error.response?.data?.message
       setGenerationStatus('error')
-      if (typeof responseMessage === 'string') {
-        setGenerationMessage(responseMessage)
-      } else if (
-        error instanceof Error &&
-        error.message !== 'The server returned an unexpected generation response.'
-      ) {
-        setGenerationMessage(error.message)
-      } else {
-        setGenerationMessage('Unable to generate an article. Check your connection and try again.')
-      }
+      setGenerationMessage(
+        typeof responseMessage === 'string'
+          ? responseMessage
+          : error.message === 'The server returned an unexpected generation response.'
+            ? 'Unable to generate an article. Check your connection and try again.'
+            : error.message,
+      )
     }
   }
 
@@ -104,10 +153,7 @@ function AddBlog() {
     setImageUrl('')
     setUploadStatus('idle')
     setUploadMessage('')
-
-    if (imageInputRef.current) {
-      imageInputRef.current.value = ''
-    }
+    if (imageInputRef.current) imageInputRef.current.value = ''
   }
 
   async function handleImageUpload() {
@@ -120,33 +166,108 @@ function AddBlog() {
     setUploadMessage('Uploading image...')
 
     try {
-      const { data } = await axios.post('/api/blog/upload', formData)
-
+      const data = await uploadBlogImage(formData)
       if (data?.success !== true || typeof data.imageUrl !== 'string' || !data.imageUrl) {
         throw new Error('The server returned an unexpected upload response.')
       }
-
       setImageUrl(data.imageUrl)
       setUploadStatus('success')
       setUploadMessage('Image uploaded successfully.')
     } catch (error) {
-      const responseMessage = error?.response?.data?.message
       setImageUrl('')
       setUploadStatus('error')
       setUploadMessage(
-        typeof responseMessage === 'string'
-          ? responseMessage
-          : 'Unable to upload the image. Check your connection and try again.'
+        error.response?.data?.message ||
+          'Unable to upload the image. Check your connection and try again.',
       )
     }
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault()
+    if (isSaving) return
+
+    const quill = quillInstanceRef.current
+    const articleText = quill?.getText().trim() || ''
+    if (!articleText) {
+      setNoticeType('alert')
+      setNotice('Add article content before saving.')
+      return
+    }
+    if (!imageUrl) {
+      setNoticeType('alert')
+      setNotice('Upload a thumbnail image before saving.')
+      return
+    }
+
+    const payload = {
+      title: title.trim(),
+      subtitle: subtitle.trim(),
+      author: author.trim(),
+      description: DOMPurify.sanitize(quill.root.innerHTML),
+      category,
+      image: imageUrl,
+    }
+    if (!isEditing) payload.isPublished = isPublished
+
+    setIsSaving(true)
+    setNotice('')
+    try {
+      const data = isEditing
+        ? await updateBlog(id, payload)
+        : await createBlog(payload)
+      if (data?.success !== true || !data.blog) {
+        throw new Error('The server did not confirm the blog save.')
+      }
+      navigate('/admin/listblog', {
+        replace: true,
+        state: { notice: isEditing ? 'Blog updated successfully.' : 'Blog created successfully.' },
+      })
+    } catch (error) {
+      setNoticeType('alert')
+      setNotice(
+        error.response?.data?.message ||
+          'Unable to save the blog. Check your connection and try again.',
+      )
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  if (blogLoadState === 'loading') {
+    return <p role="status" className="py-12 text-center text-sm text-[var(--color-muted)]">Loading blog...</p>
+  }
+
+  if (blogLoadState === 'error' || blogLoadState === 'not-found') {
+    return (
+      <section className="rounded-2xl border border-[var(--color-border)] bg-white p-6 text-center">
+        <h1 className="text-xl font-bold text-[var(--color-ink)]">
+          {blogLoadState === 'not-found' ? 'Blog not found' : 'Unable to load blog'}
+        </h1>
+        <p role={blogLoadState === 'error' ? 'alert' : 'status'} className="mt-2 text-sm text-[var(--color-muted)]">
+          {blogLoadState === 'not-found' ? 'This blog may have been deleted.' : blogLoadError}
+        </p>
+        <button
+          type="button"
+          onClick={() => navigate('/admin/listblog')}
+          className="mt-5 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]"
+        >
+          Return to blog list
+        </button>
+      </section>
+    )
   }
 
   return (
     <div>
       <div>
         <p className="text-sm font-semibold text-[var(--color-primary)]">Content</p>
-        <h1 className="mt-1 text-3xl font-bold tracking-tight text-[var(--color-ink)]">Create a blog</h1>
-        <p className="mt-2 text-sm text-[var(--color-muted)]">Draft the article layout. Blog saving is not connected.</p>
+        <h1 className="mt-1 text-3xl font-bold tracking-tight text-[var(--color-ink)]">
+          {isEditing ? 'Edit blog' : 'Create a blog'}
+        </h1>
+        <p className="mt-2 text-sm text-[var(--color-muted)]">
+          {isEditing ? 'Update the content and save your changes.' : 'Create an article draft or publish it when ready.'}
+        </p>
       </div>
 
       <form onSubmit={handleSubmit} className="mt-7 space-y-6 rounded-2xl border border-[var(--color-border)] bg-white p-5 shadow-sm sm:p-7">
@@ -161,7 +282,7 @@ function AddBlog() {
           </div>
           <div className="md:col-span-2">
             <label htmlFor="blog-author" className="mb-2 block text-sm font-semibold text-[var(--color-ink)]">Author</label>
-            <input id="blog-author" name="author" type="text" autoComplete="name" required className="w-full rounded-xl border border-[var(--color-border)] px-4 py-3 text-sm outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-accent)]" placeholder="Enter the author's name" />
+            <input id="blog-author" name="author" type="text" autoComplete="name" required value={author} onChange={(event) => setAuthor(event.target.value)} className="w-full rounded-xl border border-[var(--color-border)] px-4 py-3 text-sm outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-accent)]" placeholder="Enter the author's name" />
           </div>
           <div>
             <label htmlFor="blog-category" className="mb-2 block text-sm font-semibold text-[var(--color-ink)]">Category</label>
@@ -177,7 +298,6 @@ function AddBlog() {
               name="image"
               type="file"
               accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
-              required
               disabled={uploadStatus === 'uploading'}
               onChange={handleImageChange}
               className="block w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-sm text-[var(--color-muted)] file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--color-accent)] file:px-3 file:py-2 file:text-xs file:font-semibold file:text-[var(--color-primary)] focus-visible:outline-2 focus-visible:outline-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-60"
@@ -195,7 +315,7 @@ function AddBlog() {
               <button
                 type="button"
                 onClick={handleImageClear}
-                disabled={!selectedImage || uploadStatus === 'uploading'}
+                disabled={(!selectedImage && !imageUrl) || uploadStatus === 'uploading'}
                 className="rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Clear image
@@ -206,12 +326,12 @@ function AddBlog() {
               role={uploadStatus === 'error' ? 'alert' : 'status'}
               aria-live={uploadStatus === 'error' ? 'assertive' : 'polite'}
             >
-              {uploadMessage}
+              {uploadMessage || (isEditing && imageUrl ? 'Current thumbnail retained.' : '')}
             </p>
             {imageUrl && (
               <img
                 src={imageUrl}
-                alt="Uploaded thumbnail preview"
+                alt="Blog thumbnail preview"
                 className="mt-3 max-h-48 w-auto max-w-full rounded-lg border border-[var(--color-border)] object-contain"
               />
             )}
@@ -242,18 +362,28 @@ function AddBlog() {
           </div>
         </div>
 
-        <label className="flex items-start gap-3 rounded-xl bg-[var(--color-surface-soft)] p-4">
-          <input type="checkbox" checked={isPublished} onChange={(event) => setIsPublished(event.target.checked)} className="mt-0.5 h-4 w-4 accent-[var(--color-primary)]" />
-          <span>
-            <span className="block text-sm font-semibold text-[var(--color-ink)]">{isPublished ? 'Mark as published' : 'Save as draft'}</span>
-            <span className="mt-1 block text-xs text-[var(--color-muted)]">This setting is only a preview; it will not change a real post.</span>
-          </span>
-        </label>
+        {isEditing ? (
+          <p className="rounded-xl bg-[var(--color-surface-soft)] p-4 text-sm text-[var(--color-muted)]">
+            This blog is currently <strong>{isPublished ? 'published' : 'a draft'}</strong>. Use the blog list to change its publication status.
+          </p>
+        ) : (
+          <label className="flex items-start gap-3 rounded-xl bg-[var(--color-surface-soft)] p-4">
+            <input type="checkbox" checked={isPublished} onChange={(event) => setIsPublished(event.target.checked)} className="mt-0.5 h-4 w-4 accent-[var(--color-primary)]" />
+            <span>
+              <span className="block text-sm font-semibold text-[var(--color-ink)]">{isPublished ? 'Publish now' : 'Save as draft'}</span>
+              <span className="mt-1 block text-xs text-[var(--color-muted)]">You can change publication status from the blog list later.</span>
+            </span>
+          </label>
+        )}
 
         <div className="flex flex-col-reverse gap-3 border-t border-[var(--color-border)] pt-5 sm:flex-row sm:items-center sm:justify-between">
-          <p className="min-h-5 text-sm text-[var(--color-muted)]" role="status" aria-live="polite">{notice}</p>
-          <button type="submit" className="rounded-xl bg-[var(--color-primary)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-primary-dark)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]">
-            Preview save action
+          <p className="min-h-5 text-sm text-[var(--color-muted)]" role={noticeType} aria-live={noticeType === 'alert' ? 'assertive' : 'polite'}>{notice}</p>
+          <button
+            type="submit"
+            disabled={isSaving}
+            className="rounded-xl bg-[var(--color-primary)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-primary-dark)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isSaving ? 'Saving...' : isEditing ? 'Save changes' : 'Save blog'}
           </button>
         </div>
       </form>

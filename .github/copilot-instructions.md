@@ -113,7 +113,7 @@ Keep secrets server-side; never commit `.env` files or expose private keys throu
 
 ### `server/.env`
 ```dotenv
-PORT=3000
+PORT=5000
 MONGODB_URI=your_mongodb_atlas_connection_string
 JWT_SECRET=your_long_random_jwt_secret
 ADMIN_EMAIL=admin@example.com
@@ -126,7 +126,7 @@ GEMINI_API_KEY=your_gemini_api_key
 
 ### `client/.env`
 ```dotenv
-VITE_BASE_URL=http://localhost:3000
+VITE_BASE_URL=http://localhost:5000
 ```
 
 Only public values should use the `VITE_` prefix.
@@ -169,7 +169,7 @@ npm run server
 cd client
 npm run dev
 ```
-Expected local URLs: `http://localhost:3000` for the API and `http://localhost:5173` for Vite, unless configured otherwise.
+Expected local URLs: `http://localhost:5000` for the API and `http://localhost:5173` for Vite, unless configured otherwise.
 
 ## Recommended build sequence
 1. Requirements/specification: scope, user stories, acceptance criteria, constraints, open questions.

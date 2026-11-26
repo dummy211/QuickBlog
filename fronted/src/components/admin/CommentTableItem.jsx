@@ -1,4 +1,9 @@
-function CommentTableItem({ comment, onPreviewAction }) {
+function CommentTableItem({
+  comment,
+  isMutating = false,
+  onToggleApproval,
+  onDelete,
+}) {
   const date = new Date(comment.createdAt)
   const formattedDate = Number.isNaN(date.getTime())
     ? 'Date unavailable'
@@ -28,14 +33,26 @@ function CommentTableItem({ comment, onPreviewAction }) {
         </span>
       </td>
       <td className="whitespace-nowrap px-4 py-4">
-        <button
-          type="button"
-          onClick={onPreviewAction}
-          aria-label={`${comment.isApproved ? 'Remove' : 'Approve'} comment by ${comment.name} (preview only)`}
-          className="rounded-lg border border-[var(--color-border)] px-3 py-2 text-xs font-semibold text-[var(--color-primary)] hover:bg-[var(--color-accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]"
-        >
-          {comment.isApproved ? 'Remove' : 'Approve'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onToggleApproval}
+            disabled={isMutating}
+            aria-label={`${comment.isApproved ? 'Unapprove' : 'Approve'} comment by ${comment.name}`}
+            className="rounded-lg border border-[var(--color-border)] px-3 py-2 text-xs font-semibold text-[var(--color-primary)] hover:bg-[var(--color-accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {comment.isApproved ? 'Unapprove' : 'Approve'}
+          </button>
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={isMutating}
+            aria-label={`Delete comment by ${comment.name}`}
+            className="rounded-lg border border-[var(--color-border)] px-3 py-2 text-xs font-semibold text-[var(--color-muted)] hover:bg-[var(--color-surface-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Delete
+          </button>
+        </div>
       </td>
     </tr>
   )
