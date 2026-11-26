@@ -1,6 +1,12 @@
 import { Link } from 'react-router-dom'
 
-function BlogTableItem({ blog, showActions = false, onPreviewAction }) {
+function BlogTableItem({
+  blog,
+  showActions = false,
+  isMutating = false,
+  onTogglePublication,
+  onDelete,
+}) {
   const date = new Date(blog.createdAt)
   const formattedDate = Number.isNaN(date.getTime())
     ? 'Date unavailable'
@@ -13,7 +19,7 @@ function BlogTableItem({ blog, showActions = false, onPreviewAction }) {
           <img src={blog.image} alt="" className="h-12 w-16 shrink-0 rounded-lg bg-[var(--color-surface-soft)] object-cover" />
           <div className="min-w-0">
             <Link
-              to={`/blog/${blog._id}`}
+              to={blog.isPublished ? `/blog/${blog._id}` : `/admin/editblog/${blog._id}`}
               className="line-clamp-2 text-sm font-semibold text-[var(--color-ink)] hover:text-[var(--color-primary)] focus-visible:outline-2 focus-visible:outline-[var(--color-primary)]"
             >
               {blog.title}
@@ -37,21 +43,30 @@ function BlogTableItem({ blog, showActions = false, onPreviewAction }) {
       {showActions && (
         <td className="whitespace-nowrap px-4 py-4">
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onPreviewAction}
-              aria-label={`Edit ${blog.title} (preview only)`}
+            <Link
+              to={`/admin/editblog/${blog._id}`}
+              aria-label={`Edit ${blog.title}`}
               className="rounded-lg border border-[var(--color-border)] px-3 py-2 text-xs font-semibold text-[var(--color-primary)] hover:bg-[var(--color-accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]"
             >
               Edit
+            </Link>
+            <button
+              type="button"
+              onClick={onTogglePublication}
+              disabled={isMutating}
+              aria-label={`${blog.isPublished ? 'Unpublish' : 'Publish'} ${blog.title}`}
+              className="rounded-lg border border-[var(--color-border)] px-3 py-2 text-xs font-semibold text-[var(--color-muted)] hover:bg-[var(--color-surface-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {blog.isPublished ? 'Unpublish' : 'Publish'}
             </button>
             <button
               type="button"
-              onClick={onPreviewAction}
-              aria-label={`${blog.isPublished ? 'Unpublish' : 'Publish'} ${blog.title} (preview only)`}
-              className="rounded-lg border border-[var(--color-border)] px-3 py-2 text-xs font-semibold text-[var(--color-muted)] hover:bg-[var(--color-surface-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]"
+              onClick={onDelete}
+              disabled={isMutating}
+              aria-label={`Delete ${blog.title}`}
+              className="rounded-lg border border-[var(--color-border)] px-3 py-2 text-xs font-semibold text-[var(--color-muted)] hover:bg-[var(--color-surface-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {blog.isPublished ? 'Unpublish' : 'Publish'}
+              Delete
             </button>
           </div>
         </td>
