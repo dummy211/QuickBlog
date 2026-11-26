@@ -12,6 +12,8 @@
   "dependencies": {
     "@tailwindcss/vite": "^4.3.5",
     "axios": "^1.21.1",
+    "dompurify": "^3.5.0",
+    "marked": "^18.3.0",
     "motion": "^14.14.0",
     "quill": "^2.0.3",
     "react": "^19.3.1",

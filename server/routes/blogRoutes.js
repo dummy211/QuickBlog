@@ -2,6 +2,7 @@ import { Router } from 'express'
 import {
   createBlog,
   deleteBlog,
+  generateBlogContent,
   getAllBlogs,
   getBlogById,
   setBlogPublication,
@@ -19,6 +20,7 @@ import {
 const router = Router()
 
 router.get('/all', getAllBlogs)
+router.post('/generate', requireAdmin, generateBlogContent)
 router.post(
   '/upload',
   requireAdmin,
