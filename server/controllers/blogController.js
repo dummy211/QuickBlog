@@ -1,6 +1,7 @@
 import mongoose from 'mongoose'
 import Blog from '../models/Blog.js'
 import Comment from '../models/Comment.js'
+import { GeminiConfigurationError, gemini } from '../configs/gemini.js'
 
 const categories = new Set(['Technology', 'Startup', 'Lifestyle', 'Finance'])
 const blogFields = ['title', 'subtitle', 'author', 'description', 'category', 'image']
@@ -60,6 +61,29 @@ function sendDatabaseError(response, operation, error) {
     success: false,
     message: 'The request could not be completed.',
   })
+}
+
+function getGeminiProviderStatus(error) {
+  const status =
+    Number.isInteger(error?.status) ? error.status :
+    Number.isInteger(error?.statusCode) ? error.statusCode :
+    Number.isInteger(error?.response?.status) ? error.response.status :
+    undefined
+  return status
+}
+
+function logGeminiProviderError(error) {
+  const errorName = error instanceof Error ? error.name : 'UnknownError'
+  const status = getGeminiProviderStatus(error) ?? 'unknown'
+  const apiKey = process.env.GEMINI_API_KEY?.trim()
+  let message = error instanceof Error ? error.message : 'Unknown provider error'
+
+  message = message.replace(/AIza[0-9A-Za-z_-]{20,}/g, '[REDACTED]')
+  if (apiKey) message = message.split(apiKey).join('[REDACTED]')
+
+  console.error(
+    `AI article generation failed (${errorName}, status=${status}): ${message.slice(0, 500)}`
+  )
 }
 
 export async function getAllBlogs(_request, response) {
@@ -226,5 +250,64 @@ export async function deleteBlog(request, response) {
     return sendDatabaseError(response, 'Blog deletion', error)
   } finally {
     if (session) await session.endSession()
+  }
+}
+
+export async function generateBlogContent(request, response) {
+  const body = request.body
+  if (
+    !isObjectBody(body) ||
+    !hasOnlyFields(body, ['title', 'subtitle']) ||
+    typeof body.title !== 'string' ||
+    (typeof body.subtitle !== 'undefined' && typeof body.subtitle !== 'string')
+  ) {
+    return response.status(400).json({
+      success: false,
+      message: 'A valid title and optional subtitle are required.',
+    })
+  }
+
+  const title = body.title.trim()
+  const subtitle = typeof body.subtitle === 'string' ? body.subtitle.trim() : ''
+  if (!title || title.length > 200 || subtitle.length > 500) {
+    return response.status(400).json({
+      success: false,
+      message: 'Title must be 1-200 characters and subtitle must be 0-500 characters.',
+    })
+  }
+
+  try {
+    const content = await gemini.generateArticle({ title, subtitle })
+    if (typeof content !== 'string' || !content.trim()) {
+      console.error('AI article generation returned an empty response')
+      return response.status(502).json({
+        success: false,
+        message: 'The AI provider returned no article content. Please try again.',
+      })
+    }
+
+    return response.status(200).json({ success: true, content: content.trim() })
+  } catch (error) {
+    if (error instanceof GeminiConfigurationError) {
+      console.error('AI generation configuration is missing: GEMINI_API_KEY')
+      return response.status(500).json({
+        success: false,
+        message: 'AI generation is temporarily unavailable.',
+      })
+    }
+
+    const providerStatus = getGeminiProviderStatus(error)
+    logGeminiProviderError(error)
+    if (providerStatus === 503) {
+      return response.status(503).json({
+        success: false,
+        message: 'The AI service is temporarily busy. Please try again shortly.',
+      })
+    }
+
+    return response.status(502).json({
+      success: false,
+      message: 'Unable to generate an article right now. Please try again.',
+    })
   }
 }
