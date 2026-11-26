@@ -56,6 +56,10 @@ function AddBlog() {
             <label htmlFor="blog-subtitle" className="mb-2 block text-sm font-semibold text-[var(--color-ink)]">Subtitle</label>
             <input id="blog-subtitle" name="subtitle" className="w-full rounded-xl border border-[var(--color-border)] px-4 py-3 text-sm outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-accent)]" placeholder="Add a short summary" />
           </div>
+          <div className="md:col-span-2">
+            <label htmlFor="blog-author" className="mb-2 block text-sm font-semibold text-[var(--color-ink)]">Author</label>
+            <input id="blog-author" name="author" type="text" autoComplete="name" required className="w-full rounded-xl border border-[var(--color-border)] px-4 py-3 text-sm outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-accent)]" placeholder="Enter the author's name" />
+          </div>
           <div>
             <label htmlFor="blog-category" className="mb-2 block text-sm font-semibold text-[var(--color-ink)]">Category</label>
             <select id="blog-category" value={category} onChange={(event) => setCategory(event.target.value)} className="w-full rounded-xl border border-[var(--color-border)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-accent)]">
