@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import axios from 'axios'
 import Quill from 'quill'
 import 'quill/dist/quill.snow.css'
 import { blogCategories } from '../../assets/assets.js'
@@ -6,9 +7,14 @@ import { blogCategories } from '../../assets/assets.js'
 function AddBlog() {
   const editorElementRef = useRef(null)
   const quillInstanceRef = useRef(null)
+  const imageInputRef = useRef(null)
   const [category, setCategory] = useState('Technology')
   const [isPublished, setIsPublished] = useState(false)
   const [notice, setNotice] = useState('')
+  const [selectedImage, setSelectedImage] = useState(null)
+  const [imageUrl, setImageUrl] = useState('')
+  const [uploadStatus, setUploadStatus] = useState('idle')
+  const [uploadMessage, setUploadMessage] = useState('')
 
   useEffect(() => {
     if (!editorElementRef.current || quillInstanceRef.current) return undefined
@@ -38,12 +44,62 @@ function AddBlog() {
     setNotice('Preview only: this blog was not saved or published.')
   }
 
+  function handleImageChange(event) {
+    const file = event.target.files?.[0] ?? null
+    setSelectedImage(file)
+    setImageUrl('')
+    setUploadStatus('idle')
+    setUploadMessage('')
+  }
+
+  function handleImageClear() {
+    setSelectedImage(null)
+    setImageUrl('')
+    setUploadStatus('idle')
+    setUploadMessage('')
+
+    if (imageInputRef.current) {
+      imageInputRef.current.value = ''
+    }
+  }
+
+  async function handleImageUpload() {
+    if (!selectedImage || uploadStatus === 'uploading') return
+
+    const formData = new FormData()
+    formData.append('image', selectedImage)
+    setImageUrl('')
+    setUploadStatus('uploading')
+    setUploadMessage('Uploading image...')
+
+    try {
+      const { data } = await axios.post('/api/blog/upload', formData)
+
+      if (data?.success !== true || typeof data.imageUrl !== 'string' || !data.imageUrl) {
+        throw new Error('The server returned an unexpected upload response.')
+      }
+
+      setImageUrl(data.imageUrl)
+      setUploadStatus('success')
+      setUploadMessage('Image uploaded successfully.')
+    } catch (error) {
+      const responseMessage = error?.response?.data?.message
+      setImageUrl('')
+      setUploadStatus('error')
+      setUploadMessage(
+        typeof responseMessage === 'string'
+          ? responseMessage
+          : 'Unable to upload the image. Check your connection and try again.'
+      )
+    }
+  }
+
   return (
     <div>
       <div>
         <p className="text-sm font-semibold text-[var(--color-primary)]">Content</p>
         <h1 className="mt-1 text-3xl font-bold tracking-tight text-[var(--color-ink)]">Create a blog</h1>
-        <p className="mt-2 text-sm text-[var(--color-muted)]">Draft the article layout. Saving and uploads are not connected.</p>
+        <p className="mt-2 text-sm text-[var(--color-muted)]">Draft the article layout. Blog saving is not connected.</p>
       </div>
 
       <form onSubmit={handleSubmit} className="mt-7 space-y-6 rounded-2xl border border-[var(--color-border)] bg-white p-5 shadow-sm sm:p-7">
@@ -68,8 +124,50 @@ function AddBlog() {
           </div>
           <div>
             <label htmlFor="blog-image" className="mb-2 block text-sm font-semibold text-[var(--color-ink)]">Thumbnail image</label>
-            <input id="blog-image" name="image" type="file" accept="image/*" required className="block w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-sm text-[var(--color-muted)] file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--color-accent)] file:px-3 file:py-2 file:text-xs file:font-semibold file:text-[var(--color-primary)] focus-visible:outline-2 focus-visible:outline-[var(--color-primary)]" />
-            <p className="mt-2 text-xs text-[var(--color-muted)]">Image selection is local to this preview; no upload occurs.</p>
+            <input
+              ref={imageInputRef}
+              id="blog-image"
+              name="image"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+              required
+              disabled={uploadStatus === 'uploading'}
+              onChange={handleImageChange}
+              className="block w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-sm text-[var(--color-muted)] file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--color-accent)] file:px-3 file:py-2 file:text-xs file:font-semibold file:text-[var(--color-primary)] focus-visible:outline-2 focus-visible:outline-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+            />
+            <p className="mt-2 text-xs text-[var(--color-muted)]">JPEG, PNG, or WebP up to 5 MiB.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleImageUpload}
+                disabled={!selectedImage || uploadStatus === 'uploading'}
+                className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--color-primary-dark)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {uploadStatus === 'uploading' ? 'Uploading...' : 'Upload image'}
+              </button>
+              <button
+                type="button"
+                onClick={handleImageClear}
+                disabled={!selectedImage || uploadStatus === 'uploading'}
+                className="rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Clear image
+              </button>
+            </div>
+            <p
+              className="mt-2 min-h-5 text-sm text-[var(--color-muted)]"
+              role={uploadStatus === 'error' ? 'alert' : 'status'}
+              aria-live={uploadStatus === 'error' ? 'assertive' : 'polite'}
+            >
+              {uploadMessage}
+            </p>
+            {imageUrl && (
+              <img
+                src={imageUrl}
+                alt="Uploaded thumbnail preview"
+                className="mt-3 max-h-48 w-auto max-w-full rounded-lg border border-[var(--color-border)] object-contain"
+              />
+            )}
           </div>
         </div>
 
