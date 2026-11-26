@@ -2,6 +2,7 @@ import 'dotenv/config'
 import cors from 'cors'
 import express from 'express'
 import connectDB from './configs/db.js'
+import adminRoutes from './routes/adminRoutes.js'
 import healthRoutes from './routes/healthRoutes.js'
 
 const app = express()
@@ -9,6 +10,7 @@ const frontendOrigin = process.env.FRONTEND_ORIGIN || 'http://localhost:5173'
 
 app.use(cors({ origin: frontendOrigin }))
 app.use(express.json())
+app.use('/api/admin', adminRoutes)
 app.use('/api/health', healthRoutes)
 
 async function startServer() {
