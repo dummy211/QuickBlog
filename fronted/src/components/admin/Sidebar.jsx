@@ -8,7 +8,7 @@ const navigation = [
   { label: 'Comments', to: '/admin/comments', icon: assets.comment_icon },
 ]
 
-function Sidebar({ isOpen, onNavigate }) {
+function Sidebar({ isOpen, onNavigate, onLogout }) {
   return (
     <aside
       id="admin-sidebar"
@@ -50,10 +50,18 @@ function Sidebar({ isOpen, onNavigate }) {
 
       <div className="mt-auto border-t border-[var(--color-border)] pt-5">
         <p className="mb-4 rounded-xl bg-[var(--color-surface-soft)] px-3 py-3 text-xs leading-5 text-[var(--color-muted)]">
-          UI preview only. Admin actions are not connected to a server.
+          Blog and comment actions are not connected to the server yet.
         </p>
+        <button
+          type="button"
+          onClick={onLogout}
+          className="mb-3 w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-[var(--color-primary)] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]"
+        >
+          Sign out
+        </button>
         <Link
           to="/"
+          onClick={onNavigate}
           className="rounded-md px-3 py-2 text-sm font-semibold text-[var(--color-primary)] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]"
         >
           Back to public site

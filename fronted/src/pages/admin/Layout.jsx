@@ -1,14 +1,15 @@
 import { useState } from 'react'
-import { Link, Outlet, useLocation } from 'react-router-dom'
+import { Link, Outlet, useNavigate } from 'react-router-dom'
 import { assets } from '../../assets/assets.js'
 import Sidebar from '../../components/admin/Sidebar.jsx'
+import { useAuth } from '../../context/authContext.js'
 
-function AdminLayout() {
+function AdminLayout({ loginOnly = false }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const { pathname } = useLocation()
-  const isLoginPage = pathname === '/admin' || pathname === '/admin/'
+  const { logout } = useAuth()
+  const navigate = useNavigate()
 
-  if (isLoginPage) {
+  if (loginOnly) {
     return (
       <main className="min-h-screen bg-[var(--color-surface-soft)] px-5 py-10">
         <Link
@@ -22,9 +23,18 @@ function AdminLayout() {
     )
   }
 
+  function handleLogout() {
+    logout()
+    navigate('/admin', { replace: true })
+  }
+
   return (
     <div className="min-h-screen bg-[var(--color-surface-soft)]">
-      <Sidebar isOpen={sidebarOpen} onNavigate={() => setSidebarOpen(false)} />
+      <Sidebar
+        isOpen={sidebarOpen}
+        onNavigate={() => setSidebarOpen(false)}
+        onLogout={handleLogout}
+      />
       {sidebarOpen && (
         <button
           type="button"
