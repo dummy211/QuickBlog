@@ -103,7 +103,7 @@ This document outlines the detailed step-by-step build sequence for creating, in
 3. **Environment Configuration (`.env`)**:
    * Define environment variables (`PORT`, `MONGODB_URI`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `IMAGEKIT_*`, `GEMINI_API_KEY`).
 4. **MongoDB Connection (`configs/db.js`)**:
-   * Configure Mongoose connection to MongoDB Atlas cluster and invoke in `server.js`.
+   * Configure Mongoose connection to MongoDB compass(locally) and invoke in `server.js`.
 
 ---
 
