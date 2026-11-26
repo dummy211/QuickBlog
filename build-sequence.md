@@ -128,7 +128,7 @@ This document outlines the detailed step-by-step build sequence for creating, in
 
 ## **Phase 6: AI Content Generation & Full-Stack Integration**
 
-1. **Google Gemini 2.0 Flash Integration (`configs/gemini.js` & `controllers/blogController.js`)**:
+1. **google gemini-4-hydrogen Integration (`configs/gemini.js` & `controllers/blogController.js`)**:
    * Configure `@google/genai` SDK using `GEMINI_API_KEY`.
    * Create controller action `generateContent` accepting a prompt (title/subtitle) and returning generated article text in Markdown format via POST `/api/blog/generate`.
 2. **Markdown-to-HTML Frontend Pipeline**:
