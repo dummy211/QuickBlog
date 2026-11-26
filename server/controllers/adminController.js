@@ -1,4 +1,6 @@
 import jwt from 'jsonwebtoken'
+import Blog from '../models/Blog.js'
+import Comment from '../models/Comment.js'
 
 const tokenLifetimeSeconds = 24 * 60 * 60
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -69,4 +71,28 @@ export function loginAdmin(request, response) {
 
 export function getAdminSession(_request, response) {
   return response.status(200).json({ success: true, authenticated: true })
+}
+
+export async function getAdminStats(_request, response) {
+  try {
+    const [publishedBlogs, draftBlogs, totalComments, recentBlogs] = await Promise.all([
+      Blog.countDocuments({ isPublished: true }),
+      Blog.countDocuments({ isPublished: false }),
+      Comment.countDocuments(),
+      Blog.find().sort({ createdAt: -1 }).limit(5),
+    ])
+
+    return response.status(200).json({
+      success: true,
+      stats: { publishedBlogs, draftBlogs, totalComments },
+      recentBlogs,
+    })
+  } catch (error) {
+    const errorName = error instanceof Error ? error.name : 'UnknownError'
+    console.error(`Admin dashboard statistics failed (${errorName})`)
+    return response.status(500).json({
+      success: false,
+      message: 'Dashboard statistics are temporarily unavailable.',
+    })
+  }
 }

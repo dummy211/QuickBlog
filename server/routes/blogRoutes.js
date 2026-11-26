@@ -1,4 +1,13 @@
 import { Router } from 'express'
+import {
+  createBlog,
+  deleteBlog,
+  getAllBlogs,
+  getBlogById,
+  setBlogPublication,
+  updateBlog,
+} from '../controllers/blogController.js'
+import { submitComment } from '../controllers/commentController.js'
 import { uploadBlogImage } from '../controllers/imageUploadController.js'
 import { requireAdmin } from '../middleware/auth.js'
 import {
@@ -9,6 +18,7 @@ import {
 
 const router = Router()
 
+router.get('/all', getAllBlogs)
 router.post(
   '/upload',
   requireAdmin,
@@ -16,6 +26,13 @@ router.post(
   validateImageContent,
   uploadBlogImage
 )
+
+router.post('/:id/comments', submitComment)
+router.post('/', requireAdmin, createBlog)
+router.put('/:id', requireAdmin, updateBlog)
+router.patch('/:id/publish', requireAdmin, setBlogPublication)
+router.delete('/:id', requireAdmin, deleteBlog)
+router.get('/:id', getBlogById)
 router.use(handleImageUploadError)
 
 export default router
